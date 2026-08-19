@@ -113,24 +113,43 @@ return {
       return sections
     }
 
-    const buildGroups = (nodes, cwd) => {
-      const groups = []
+    const applyHunk = (acc, hunk) => {
+      if (hunk.oldText === null) return { acc: hunk.newText, ok: true }
+      const index = acc.indexOf(hunk.oldText)
+      if (index === -1) return { acc, ok: false }
+      return { acc: acc.slice(0, index) + hunk.newText + acc.slice(index + hunk.oldText.length), ok: true }
+    }
+
+    const buildFileChanges = (nodes, cwd) => {
       const byPath = new Map()
+      const order = []
       for (const node of nodes) {
         const diffs = extractHunks(node)
         if (diffs === null) continue
         for (const d of diffs) {
           const path = relativize(d.path, cwd)
-          let group = byPath.get(path)
-          if (group === undefined) {
-            group = { path, hunks: [] }
-            byPath.set(path, group)
-            groups.push(group)
+          let rec = byPath.get(path)
+          if (rec === undefined) {
+            rec = { path, diffs: [] }
+            byPath.set(path, rec)
+            order.push(rec)
           }
-          group.hunks.push({ oldText: d.oldText, newText: d.newText })
+          rec.diffs.push({ oldText: d.oldText, newText: d.newText })
         }
       }
-      return groups
+      return order.map((rec) => {
+        if (rec.diffs[0].oldText === null) {
+          let acc = rec.diffs[0].newText
+          let ok = true
+          for (let i = 1; i < rec.diffs.length; i += 1) {
+            const result = applyHunk(acc, rec.diffs[i])
+            acc = result.acc
+            if (!result.ok) { ok = false; break }
+          }
+          if (ok) return { path: rec.path, kind: 'cumulative', cumulative: { oldText: null, newText: acc }, changeCount: rec.diffs.length }
+        }
+        return { path: rec.path, kind: 'hunks', hunks: rec.diffs, changeCount: rec.diffs.length }
+      })
     }
 
     const splitLines = (text) => {
@@ -173,11 +192,15 @@ return {
 
     const FileGroup = ({ group }) => {
       const [open, setOpen] = React.useState(true)
-      const count = group.hunks.length
+      const count = group.changeCount
+      const suffix = group.kind === 'cumulative' ? ` · new file` : ''
       const header = React.createElement('button', { type: 'button', className: 'fd-change', onClick: () => setOpen(!open) },
         React.createElement('span', { className: 'fd-change-path' }, group.path),
-        React.createElement('span', { className: 'fd-change-index' }, `${count} change${count === 1 ? '' : 's'}`))
+        React.createElement('span', { className: 'fd-change-index' }, `${count} change${count === 1 ? '' : 's'}${suffix}`))
       if (!open) return header
+      if (group.kind === 'cumulative') {
+        return React.createElement(React.Fragment, null, header, React.createElement(Hunk, { hunk: group.cumulative }))
+      }
       return React.createElement(React.Fragment, null, header, ...group.hunks.map((hunk, index) => React.createElement(Hunk, { key: index, hunk })))
     }
 
@@ -211,13 +234,13 @@ return {
       const [mode, setMode] = React.useState(viewMode)
       const pickMode = (next) => { viewMode = next; setMode(next) }
       const sections = React.useMemo(() => buildSections(nodes, cwd), [nodes, cwd])
-      const groups = React.useMemo(() => buildGroups(nodes, cwd), [nodes, cwd])
+      const fileGroups = React.useMemo(() => buildFileChanges(nodes, cwd), [nodes, cwd])
       const changeCount = mode === 'session'
         ? sections.reduce((sum, section) => sum + section.changes.length, 0)
-        : groups.reduce((sum, group) => sum + group.hunks.length, 0)
+        : fileGroups.reduce((sum, group) => sum + group.changeCount, 0)
       const fileCount = mode === 'session'
         ? new Set(sections.flatMap((section) => section.changes.map((change) => change.path))).size
-        : groups.length
+        : fileGroups.length
 
       const body = []
       if (hasMore) body.push(React.createElement('button', { key: 'older', type: 'button', className: 'fd-older', disabled: loadingOlder, onClick: () => { loadOlder() } }, loadingOlder ? 'Loading older history…' : 'Load older history'))
@@ -236,7 +259,7 @@ return {
             number += section.changes.length
           }
         } else {
-          for (const group of groups) body.push(React.createElement(FileGroup, { key: group.path, group }))
+          for (const group of fileGroups) body.push(React.createElement(FileGroup, { key: group.path, group }))
         }
       }
       return React.createElement('div', { className: 'fd-view' },
