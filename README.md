@@ -31,7 +31,7 @@ That's it. To update, repeat with a newer `plugin-client.js` and `cordis_define`
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2025 Your Name. You may use, copy, modify, and redistribute this plugin (and its derivatives) under the terms of the MIT license; see `LICENSE` for details.
+[MIT](LICENSE) — Copyright (c) 2026 tanaka. You may use, copy, modify, and redistribute this plugin (and its derivatives) under the terms of the MIT license; see `LICENSE` for details.
 
 ## Files
 
