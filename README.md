@@ -2,7 +2,7 @@
 
 A per-session **Files** view tab for the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web UI. It shows every file change made in a session, as unified diffs, in two switchable modes:
 
-- **Session** — chronological change entries grouped under the user chat message that prompted them (collapsible, light-blue header cards; collapsed headers still list the affected file paths).
+- **Timeline** — chronological change entries grouped under the user chat message that prompted them (collapsible, light-blue header cards; collapsed headers still list the affected file paths).
 - **File** — one cumulative diff per file (base → final) when the file was created in this session; pre-existing files fall back to the per-change hunk list, because the session log only carries context hunks, not the file's prior full content. Created files are marked `new file`.
 
 Diffs come from the session's own persisted tool-result metadata (the same hunks the inline write/edit cards render), so the view works after page reloads and replays. Paths are shown relative to the session workspace.

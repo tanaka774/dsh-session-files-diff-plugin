@@ -245,7 +245,7 @@ return {
       const body = []
       if (hasMore) body.push(React.createElement('button', { key: 'older', type: 'button', className: 'fd-older', disabled: loadingOlder, onClick: () => { loadOlder() } }, loadingOlder ? 'Loading older history…' : 'Load older history'))
       body.push(React.createElement('div', { key: 'toggle', className: 'fd-toggle' },
-        React.createElement('button', { type: 'button', className: mode === 'session' ? 'fd-toggle-active' : '', onClick: () => pickMode('session') }, 'Session'),
+        React.createElement('button', { type: 'button', className: mode === 'session' ? 'fd-toggle-active' : '', onClick: () => pickMode('session') }, 'Timeline'),
         React.createElement('button', { type: 'button', className: mode === 'file' ? 'fd-toggle-active' : '', onClick: () => pickMode('file') }, 'File')))
       if (changeCount === 0) {
         body.push(React.createElement('div', { key: 'empty', className: 'fd-empty' }, 'No file changes in this session.'))
