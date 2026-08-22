@@ -7,7 +7,11 @@
 
 const CSS = `
 .fd-view { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.fd-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 6px; }
+/* The session body owns the scrollport ([data-conversation-scroll]): the view area
+   grows with content, so this container must NOT clip — an overflow:auto here would
+   make it the nearest scroll container and pin the sticky headers against a scroller
+   that never moves. The runtime binds the sticky measurement to the real scroller. */
+.fd-scroll { flex: 1 1 auto; min-height: 0; overflow: visible; padding: 16px 20px; display: flex; flex-direction: column; gap: 6px; }
 .fd-summary { color: var(--dsw-alias-label-secondary); font-size: 12px; margin: 2px 4px 6px; }
 .fd-empty { color: var(--dsw-alias-label-secondary); font-size: 13px; padding: 24px 4px; }
 .fd-older { align-self: flex-start; margin: 2px 4px 6px; padding: 4px 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12px; cursor: pointer; }
@@ -15,7 +19,8 @@ const CSS = `
 .fd-toggle { align-self: flex-start; display: inline-flex; gap: 2px; margin: 2px 4px 6px; padding: 2px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px; background: var(--dsw-alias-bg-layer-1); }
 .fd-toggle button { border: none; background: none; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 4px; cursor: pointer; }
 .fd-toggle button.fd-toggle-active { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
-.fd-section-user { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, var(--dsw-alias-bg-layer-1)); color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.fd-section { display: flex; flex-direction: column; gap: 6px; }
+.fd-section-user { position: sticky; top: 0; z-index: 3; display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--dsw-alias-brand-primary) 10%, var(--dsw-alias-bg-layer-1)); color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .fd-section-user:hover { border-color: var(--dsw-alias-brand-primary); }
 .fd-section-user-row { display: flex; align-items: center; gap: 8px; }
 .fd-section-user-chevron { flex: none; width: 1em; color: var(--dsw-alias-label-secondary); transition: transform 0.15s ease; }
@@ -25,8 +30,9 @@ const CSS = `
 .fd-section-user-files { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; color: var(--dsw-alias-label-secondary); }
 .fd-section-user.fd-section-closed { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 6%, var(--dsw-alias-bg-layer-2)); }
 .fd-section-user.fd-section-closed .fd-section-user-text { color: var(--dsw-alias-label-secondary); font-weight: 400; }
-.fd-change { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 6px 8px; border: none; border-radius: 6px; background: none; color: var(--dsw-alias-label-primary); font: inherit; text-align: left; cursor: pointer; }
+.fd-change { position: sticky; top: var(--fd-sticky-offset, 0px); z-index: 2; display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 6px 8px; border: none; border-radius: 6px; background: none; color: var(--dsw-alias-label-primary); font: inherit; text-align: left; cursor: pointer; }
 .fd-change:hover { background: var(--dsw-alias-bg-layer-2); }
+.fd-change.fd-stuck { background: var(--dsw-alias-bg-layer-1); box-shadow: 0 1px 0 0 var(--dsw-alias-border-l1); }
 .fd-change-index { flex: none; min-width: 3ch; color: var(--dsw-alias-label-secondary); font-size: 12px; text-align: right; }
 .fd-change-path { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
 .fd-hunk { border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); overflow: hidden; }
@@ -197,11 +203,11 @@ return {
       const header = React.createElement('button', { type: 'button', className: 'fd-change', onClick: () => setOpen(!open) },
         React.createElement('span', { className: 'fd-change-path' }, group.path),
         React.createElement('span', { className: 'fd-change-index' }, `${count} change${count === 1 ? '' : 's'}${suffix}`))
-      if (!open) return header
+      if (!open) return React.createElement('div', { className: 'fd-section' }, header)
       if (group.kind === 'cumulative') {
-        return React.createElement(React.Fragment, null, header, React.createElement(Hunk, { hunk: group.cumulative }))
+        return React.createElement('div', { className: 'fd-section' }, header, React.createElement(Hunk, { hunk: group.cumulative }))
       }
-      return React.createElement(React.Fragment, null, header, ...group.hunks.map((hunk, index) => React.createElement(Hunk, { key: index, hunk })))
+      return React.createElement('div', { className: 'fd-section' }, header, ...group.hunks.map((hunk, index) => React.createElement(Hunk, { key: index, hunk })))
     }
 
     const Section = ({ section, startIndex }) => {
@@ -215,15 +221,15 @@ return {
           uniquePaths.push(change.path)
         }
       }
-      if (section.user === null) return React.createElement(React.Fragment, null, ...section.changes.map((change, index) => React.createElement(ChangeEntry, { key: `${startIndex + index}`, entry: change, index: startIndex + index })))
+      if (section.user === null) return React.createElement('div', { className: 'fd-section' }, ...section.changes.map((change, index) => React.createElement(ChangeEntry, { key: `${startIndex + index}`, entry: change, index: startIndex + index })))
       const header = React.createElement('button', { type: 'button', className: open ? 'fd-section-user fd-section-open' : 'fd-section-user fd-section-closed', onClick: () => setOpen(!open) },
         React.createElement('span', { className: 'fd-section-user-row' },
           React.createElement('span', { className: 'fd-section-user-chevron' }, '▸'),
           React.createElement('span', { className: 'fd-section-user-text' }, section.user),
           React.createElement('span', { className: 'fd-section-user-count' }, `${count} change${count === 1 ? '' : 's'}`)),
         open ? null : React.createElement('span', { className: 'fd-section-user-files' }, uniquePaths.join(' · ')))
-      if (!open) return header
-      return React.createElement(React.Fragment, null, header, ...section.changes.map((change, index) => React.createElement(ChangeEntry, { key: `${startIndex + index}`, entry: change, index: startIndex + index })))
+      if (!open) return React.createElement('div', { className: 'fd-section' }, header)
+      return React.createElement('div', { className: 'fd-section' }, header, ...section.changes.map((change, index) => React.createElement(ChangeEntry, { key: `${startIndex + index}`, entry: change, index: startIndex + index })))
     }
 
     const FilesView = ({ useSession, useSessions, sessionId, loadOlder }) => {
@@ -231,6 +237,83 @@ return {
       const hasMore = useSession((snapshot) => snapshot.hasMore)
       const loadingOlder = useSession((snapshot) => snapshot.loadingOlder)
       const cwd = useSessions((list) => list.byId[sessionId]?.cwd)
+      const scrollRef = React.useRef(null)
+      const scrollerRef = React.useRef(null)
+      const updateSticky = () => {
+        const container = scrollRef.current
+        if (container === null) return
+        const scroller = scrollerRef.current ?? container
+        const top = scroller.getBoundingClientRect().top
+        let offset = 0
+        const sectionEls = container.querySelectorAll('.fd-section-user')
+        for (let i = sectionEls.length - 1; i >= 0; i -= 1) {
+          const el = sectionEls[i]
+          if (el.getBoundingClientRect().top <= top + 1) {
+            offset = el.offsetHeight
+            break
+          }
+        }
+        container.style.setProperty('--fd-sticky-offset', `${offset}px`)
+        const changeEls = container.querySelectorAll('.fd-change')
+        let stuck = null
+        const limit = top + offset + 1
+        for (const el of changeEls) {
+          if (el.getBoundingClientRect().top <= limit) stuck = el
+        }
+        for (const el of changeEls) {
+          if (el === stuck) el.classList.add('fd-stuck')
+          else el.classList.remove('fd-stuck')
+        }
+      }
+      React.useEffect(() => { updateSticky() })
+      React.useEffect(() => {
+        const container = scrollRef.current
+        if (container === null) return undefined
+        // The session body owns the real scrollport: the view area grows with its
+        // content, so `.fd-scroll` must not clip — otherwise `position: sticky`
+        // pins against it and never moves. Walk up to the nearest scrollable
+        // ancestor and pin against that scroller; when an intermediate ancestor
+        // clips (bounded view mode), make the container itself the scroller.
+        let scroller = null
+        let el = container
+        while (el !== null) {
+          const style = getComputedStyle(el)
+          if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 1) {
+            scroller = el
+            break
+          }
+          el = el.parentElement
+        }
+        let blocked = false
+        if (scroller !== null && scroller !== container) {
+          let cur = container.parentElement
+          while (cur !== null && cur !== scroller) {
+            const style = getComputedStyle(cur)
+            if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
+              blocked = true
+              break
+            }
+            cur = cur.parentElement
+          }
+        }
+        if (blocked || scroller === null) {
+          container.style.overflow = 'auto'
+          scroller = container
+        } else {
+          container.style.overflow = 'visible'
+        }
+        scrollerRef.current = scroller
+        updateSticky()
+        const onScroll = () => updateSticky()
+        scroller.addEventListener('scroll', onScroll, { passive: true })
+        const observer = new ResizeObserver(() => updateSticky())
+        observer.observe(container)
+        if (scroller !== container) observer.observe(scroller)
+        return () => {
+          scroller.removeEventListener('scroll', onScroll)
+          observer.disconnect()
+        }
+      }, [])
       const [mode, setMode] = React.useState(viewMode)
       const pickMode = (next) => { viewMode = next; setMode(next) }
       const sections = React.useMemo(() => buildSections(nodes, cwd), [nodes, cwd])
@@ -263,7 +346,7 @@ return {
         }
       }
       return React.createElement('div', { className: 'fd-view' },
-        React.createElement('div', { className: 'fd-scroll' }, ...body))
+        React.createElement('div', { ref: scrollRef, className: 'fd-scroll' }, ...body))
     }
 
     ctx.effect(() => styles.insert(CSS))
